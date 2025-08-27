@@ -1,0 +1,5 @@
+services:
+  insurance-verifier:
+    image: ayushranjan123/insurance-verifier
+    network_mode: host
+    restart: unless-stopped

@@ -1,0 +1,16 @@
+[package]
+name = "zk-insurance-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.35", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+base64 = "0.21"
+hex = "0.4"
+anyhow = "1.0"
+clap = { version = "4.4", features = ["derive"] }
+chrono = "0.4"
+
+[build-dependencies]

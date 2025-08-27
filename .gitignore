@@ -1,0 +1,77 @@
+# Rust
+server/target/
+**/*.rs.bk
+*.pdb
+Cargo.lock
+
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Docker
+.dockerignore
+
+# Logs
+*.log
+logs/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+*.tmp
+*.temp
+/tmp/
+
+# Build artifacts
+dist/
+build/
+
+# Node modules (if any)
+node_modules/
+
+# Python (if any)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# Backup files
+*.bak
+*.backup
+
+# Private keys and sensitive data
+*.key
+*.pem
+private_key*
+wallet_private_key*
+
+# Test coverage
+coverage/
+*.coverage
+
+# Local development
+.local/
+.cache/
+server/target/debug/zk-insurance-server
+server/target/debug/zk-insurance-server.d
+server/target/debug/deps/zk_insurance_server-da398db31e5f505b

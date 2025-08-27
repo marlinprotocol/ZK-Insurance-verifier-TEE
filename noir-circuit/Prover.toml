@@ -1,0 +1,6 @@
+age = "20"
+bmi = "220"
+min_age = "10"
+max_age = "25"
+min_bmi = "185"
+max_bmi = "249"
