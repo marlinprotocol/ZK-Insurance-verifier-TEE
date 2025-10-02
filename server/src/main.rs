@@ -96,13 +96,17 @@ max_bmi = "249""#,
             });
         }
 
-        // Step 3: Generate proof using bb (Barretenberg) with correct command
+        // Generate a unique timestamp for proof files
+        let timestamp = chrono::Utc::now().timestamp();
+        let proof_filename = format!("./target/proof_{}", timestamp);
+        
+        // Step 3: Generate proof using bb (Barretenberg) with unique filename
         let prove_output = Command::new("bb")
             .args(&[
                 "prove",
                 "-b", "./target/insurance_verifier.json",
                 "-w", "./target/insurance_verifier",
-                "-o", "./target",
+                "-o", &proof_filename,
                 "--oracle_hash", "keccak",
                 "--output_format", "bytes_and_fields"
             ])
@@ -123,9 +127,32 @@ max_bmi = "249""#,
         }
 
         // Debug: Check what files were actually created
-        let target_dir = circuit_path.join("target");
-        let proof_path = target_dir.join("proof");
-        let public_inputs_path = target_dir.join("public_inputs");
+        // bb might create either a file directly or a subdirectory with files
+        let proof_dir = circuit_path.join(&proof_filename);
+        let proof_path_in_subdir = proof_dir.join("proof");
+        let direct_proof_path = circuit_path.join(&proof_filename);
+        
+        let (proof_path, public_inputs_path) = if proof_path_in_subdir.exists() {
+            // Case 1: bb created a subdirectory with proof files inside
+            (proof_path_in_subdir, proof_dir.join("public_inputs"))
+        } else if direct_proof_path.exists() {
+            // Case 2: bb created the proof file directly
+            (direct_proof_path, circuit_path.join("target").join("public_inputs"))
+        } else {
+            // Neither case worked, check for default locations
+            let fallback_proof = circuit_path.join("target").join("proof");
+            if fallback_proof.exists() {
+                (fallback_proof, circuit_path.join("target").join("public_inputs"))
+            } else {
+                return Ok(ProofResponse {
+                    proof_hex: String::new(),
+                    public_inputs: String::new(),
+                    success: false,
+                    message: format!("Proof file was not generated. Checked paths: {}, {}, {}", 
+                        proof_path_in_subdir.display(), direct_proof_path.display(), fallback_proof.display()),
+                });
+            }
+        };
         
         // Step 4: Convert proof to hex format using the specified method
         if !proof_path.exists() {
@@ -159,11 +186,13 @@ max_bmi = "249""#,
 
         // Step 5: Read public inputs from the correct location
         // First try to read the formatted JSON version
-        let public_inputs_fields_path = circuit_path.join("target").join("public_inputs_fields.json");
-        let public_inputs_path = circuit_path.join("target").join("public_inputs");
+        let proof_dir = proof_path.parent().unwrap();
+        let public_inputs_fields_path = proof_dir.join("public_inputs_fields.json");
+        let fallback_public_inputs_fields_path = circuit_path.join("target").join("public_inputs_fields.json");
+        let fallback_public_inputs_path = circuit_path.join("target").join("public_inputs");
         
         let public_inputs = if public_inputs_fields_path.exists() {
-            // Prefer the JSON formatted version
+            // Prefer the JSON formatted version from the proof directory
             match fs::read_to_string(&public_inputs_fields_path) {
                 Ok(content) => content.trim().to_string(),
                 Err(e) => {
@@ -175,8 +204,21 @@ max_bmi = "249""#,
                     });
                 }
             }
+        } else if fallback_public_inputs_fields_path.exists() {
+            // Fallback to the target directory JSON version
+            match fs::read_to_string(&fallback_public_inputs_fields_path) {
+                Ok(content) => content.trim().to_string(),
+                Err(e) => {
+                    return Ok(ProofResponse {
+                        proof_hex,
+                        public_inputs: String::new(),
+                        success: false,
+                        message: format!("Failed to read public inputs fields JSON at {}: {}", fallback_public_inputs_fields_path.display(), e),
+                    });
+                }
+            }
         } else if public_inputs_path.exists() {
-            // Fallback to raw public_inputs and format it properly
+            // Use the public_inputs file from the proof directory
             match fs::read_to_string(&public_inputs_path) {
                 Ok(text) => {
                     text.trim().to_string()
@@ -204,6 +246,40 @@ max_bmi = "249""#,
                                 public_inputs: String::new(),
                                 success: false,
                                 message: format!("Failed to read public inputs file at {}: {}", public_inputs_path.display(), e),
+                            });
+                        }
+                    }
+                }
+            }
+        } else if fallback_public_inputs_path.exists() {
+            // Final fallback to raw public_inputs in target directory and format it properly
+            match fs::read_to_string(&fallback_public_inputs_path) {
+                Ok(text) => {
+                    text.trim().to_string()
+                },
+                Err(_) => {
+                    // If reading as text fails, read as binary and format as individual field elements
+                    match fs::read(&fallback_public_inputs_path) {
+                        Ok(bytes) => {
+                            // Each field element is 32 bytes (64 hex characters)
+                            let hex_string = hex::encode(bytes);
+                            if hex_string.len() % 64 == 0 && !hex_string.is_empty() {
+                                let mut field_elements = Vec::new();
+                                for i in (0..hex_string.len()).step_by(64) {
+                                    let end = std::cmp::min(i + 64, hex_string.len());
+                                    field_elements.push(format!("\"0x{}\"", &hex_string[i..end]));
+                                }
+                                format!("[{}]", field_elements.join(","))
+                            } else {
+                                format!("0x{}", hex_string)
+                            }
+                        },
+                        Err(e) => {
+                            return Ok(ProofResponse {
+                                proof_hex,
+                                public_inputs: String::new(),
+                                success: false,
+                                message: format!("Failed to read fallback public inputs file at {}: {}", fallback_public_inputs_path.display(), e),
                             });
                         }
                     }

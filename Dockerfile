@@ -10,39 +10,16 @@ RUN apt-get update && apt-get install -y \
     jq \
     && rm -rf /var/lib/apt/lists/*
 
-# Detect architecture
-RUN echo "Building for architecture: $(uname -m)"
-
-# Install Noir with architecture detection
+# Install Noir
 RUN curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash
 ENV PATH="/root/.nargo/bin:${PATH}"
 RUN noirup
 
-# Install Barretenberg with architecture handling
+# Install Barretenberg with specific version
 RUN curl -L https://raw.githubusercontent.com/AztecProtocol/aztec-packages/refs/heads/master/barretenberg/bbup/install | bash
 ENV PATH="/root/.bb:${PATH}"
-
-# Apply ARM64 fix to bbup script before running it
-RUN ARCH=$(uname -m) && \
-    echo "Installing Barretenberg for architecture: $ARCH" && \
-    if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then \
-        echo "ARM64 detected. Applying fix to bbup script..." && \
-        # Create a fixed version of bbup script for ARM64 \
-        cp /root/.bb/bbup /root/.bb/bbup.orig && \
-        awk ' \
-        /local binary_url=/ { \
-            print "    if [[ \"$architecture\" == \"arm64\" ]] && [[ \"$platform\" == \"linux\" ]] && [[ \"$release_tag\" == \"v0.87.0\" ]]; then"; \
-            print "        release_tag=\"v0.87.2\""; \
-            print "    fi"; \
-            print $0; \
-            next \
-        } \
-        { print } \
-        ' /root/.bb/bbup.orig > /root/.bb/bbup && \
-        chmod +x /root/.bb/bbup && \
-        echo "bbup script modified for ARM64 compatibility"; \
-    fi && \
-    /root/.bb/bbup && \
+# Install a specific known working version of barretenberg
+RUN /root/.bb/bbup -v 0.87.0 && \
     ln -sf /root/.bb/bb /usr/local/bin/bb
 
 # Verify installations
@@ -74,41 +51,19 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
     jq \
+    libc++1 \
+    libc++abi1 \
     && rm -rf /var/lib/apt/lists/*
-
-# Detect architecture in runtime
-RUN echo "Runtime architecture: $(uname -m)"
 
 # Install Noir in runtime
 RUN curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash
 ENV PATH="/root/.nargo/bin:${PATH}"
 RUN noirup
 
-# Install Barretenberg in runtime with architecture handling
+# Install Barretenberg in runtime with specific version
 RUN curl -L https://raw.githubusercontent.com/AztecProtocol/aztec-packages/refs/heads/master/barretenberg/bbup/install | bash
 ENV PATH="/root/.bb:${PATH}"
-
-# Apply ARM64 fix to bbup script before running it
-RUN ARCH=$(uname -m) && \
-    echo "Installing Barretenberg for runtime architecture: $ARCH" && \
-    if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then \
-        echo "ARM64 runtime detected. Applying fix to bbup script..." && \
-        # Create a fixed version of bbup script for ARM64 \
-        cp /root/.bb/bbup /root/.bb/bbup.orig && \
-        awk ' \
-        /local binary_url=/ { \
-            print "    if [[ \"$architecture\" == \"arm64\" ]] && [[ \"$platform\" == \"linux\" ]] && [[ \"$release_tag\" == \"v0.87.0\" ]]; then"; \
-            print "        release_tag=\"v0.87.2\""; \
-            print "    fi"; \
-            print $0; \
-            next \
-        } \
-        { print } \
-        ' /root/.bb/bbup.orig > /root/.bb/bbup && \
-        chmod +x /root/.bb/bbup && \
-        echo "bbup script modified for ARM64 compatibility"; \
-    fi && \
-    /root/.bb/bbup && \
+RUN /root/.bb/bbup -v 0.87.0 && \
     ln -sf /root/.bb/bb /usr/local/bin/bb
 
 # Verify installations
